@@ -14,6 +14,7 @@ function Stop-AutoAnalysis {
     $script:analysisTemp=$null
 }
 function Start-AutoAnalysis {
+    Stop-SongDetection; $script:detectionResult=$null; if ($ui.ApplyDetection) { $ui.ApplyDetection.IsEnabled=$false }
     Stop-AutoAnalysis; $script:analysisResult=$null; $ui.ApplyAnalysis.IsEnabled=$false
     if (!$script:source -or $script:busy) { return }
     if (!(Test-Path -LiteralPath $script:ffmpeg)) { $ui.AnalysisText.Text='Run Setup.cmd to install the analysis engine.'; return }
@@ -38,6 +39,8 @@ function Invoke-AutoAnalysisTick {
         $log=Get-Content -LiteralPath $script:analysisLog -Raw; $m=Read-Measurement $log
         if ($m.input_i -notmatch '^-?\d+(\.\d+)?$') { throw 'The song is silent or cannot be measured.' }
         $bands=Read-Bands $log; $script:analysisResult=@{Path=$script:analysisPath;Measurement=$m;Bands=$bands}
+        $duration=[regex]::Match($log,'Duration:\s*(\d{2}:\d{2}:\d{2}\.\d+)')
+        $script:analysisResult.Duration=if ($duration.Success) { [TimeSpan]::Parse($duration.Groups[1].Value,[Globalization.CultureInfo]::InvariantCulture).TotalSeconds } else { 10 }
         if ($script:source -ne $script:analysisPath -or $script:busy) { return }
         $ui.InputMeter.Text="$($m.input_i) LUFS"
         $genre=[regex]::Match($log,'(?im)^\s*genre\s*:\s*(.+)$')
@@ -47,6 +50,7 @@ function Invoke-AutoAnalysisTick {
         $ui.ApplyAnalysis.IsEnabled=$true
         if ($ui.AutoTune.IsChecked -and ((Get-Settings | ConvertTo-Json -Compress) -eq $script:analysisSignature)) { Apply-AnalysisSettings }
         elseif ($ui.AutoTune.IsChecked) { $ui.AnalysisText.Text+="`nYour edits were kept. Use Apply to accept suggestions." }
+        if ($ui.AutoDetect -and $ui.AutoDetect.IsChecked) { Start-SongDetection }
     } catch { $ui.AnalysisText.Text='Analysis unavailable: '+$_.Exception.Message; $ui.ApplyAnalysis.IsEnabled=$false }
     finally { Stop-AutoAnalysis }
 }
@@ -59,6 +63,5 @@ function Initialize-AutoAnalysis {
     $auto=New-Object Windows.Controls.CheckBox; $auto.Content='Auto-tune conservative cleanup'; $auto.IsChecked=$true; $auto.Margin='0,6,15,4'; $ui.AutoTune=$auto; $row.Children.Add($auto) | Out-Null
     foreach ($spec in @(@('ApplyAnalysis','Apply suggestions'),@('Reanalyze','Re-analyze'))) { $button=New-Object Windows.Controls.Button; $button.Content=$spec[1]; $button.Padding='10,4'; $button.FontSize=10; $ui[$spec[0]]=$button; $row.Children.Add($button) | Out-Null }
     $ui.ApplyAnalysis.IsEnabled=$false; $ui.ApplyAnalysis.Add_Click({ Apply-AnalysisSettings }); $ui.Reanalyze.Add_Click({ Start-AutoAnalysis })
-    $ui.AnalyzeTrack.Add_Click({ Start-AutoAnalysis })
     $stack.Children.Add($row) | Out-Null; $border.Child=$stack; $ui.GenreInfo.Parent.Children.Insert(1,$border)
 }

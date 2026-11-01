@@ -1,5 +1,7 @@
 # OG Mastering — Suno Studio
 
+For the standalone Windows version, download `OG-Mastering-1.0.0-win-x64.exe` from GitHub Releases. It bundles FFmpeg, Node, detection dependencies and the local CLAP model. Double-click to extract and launch; no separate setup is required. Files are cached in `%LOCALAPPDATA%\OGMastering`. See `RELEASE-NOTES.md` for requirements and packaging details. The existing CMD/PowerShell launchers remain available for source checkouts.
+
 An offline Windows mastering app for exported Suno songs, inspired by the advanced workflow described by [SunoMaster V3](https://sunomaster.com/mode-comparison). It uses its own DSP chain, matching, presets, and advice rules.
 
 ## Start
@@ -16,7 +18,11 @@ The app starts in **Simple** mode: import a song, optionally add a reference, ch
 
 Import now automatically starts background analysis of the first selected song: original integrated loudness, true peak, loudness range, and six broad tone bands. Full-song loudness is measured; tone bands use the first minute. **Auto-tune conservative cleanup** defaults on and adds mild mud/harshness reduction where indicated, modest de-essing for strong upper energy, and disables glue for very low loudness range. It preserves your target, manual EQ and genre, and will not replace edits made while analysis ran. Use **Apply suggestions** to accept suggestions after editing. Turn Auto-tune off to retain full manual processing. Batch mastering remeasures and adapts each song independently. Automatic repair, noise reduction and saturation are never enabled by these rules.
 
-Genre information is read from a file's genre metadata when available; this is labeled as a tag. Audio-based genre, tempo, instrument and vocal classification are not implemented. Untagged songs show genre uncertainty instead of a false genre claim. Re-analysis and mastering remain local; no audio is uploaded.
+Genre metadata is shown separately from model-based detection. Install optional **Auto Detect** with **Setup-Detection.cmd** once, then restart. It downloads a local Node runtime, Transformers.js and the quantized Xenova/CLAP audio-text model. Downloads can be several hundred MB and the model can use substantial RAM. After setup, genre/vocal inference runs with remote model access disabled and no audio uploads.
+
+**Auto-detect genre and vocals on import** analyzes up to three ten-second excerpts spaced through the song. It ranks the genre menu's candidates, including Dark Rap and Dark Country, and suggests likely vocals, likely instrumental, or uncertainty. Scores are relative matches among supplied text labels, not calibrated accuracy percentages. Related subgenres and mixed styles are difficult; short excerpts can miss singing or confuse instruments and voices. Review the top three matches and use **Apply detected settings** to load the suggested genre and vocal de-essing settings, preserving your loudness target and export format. Suggestions are never silently applied. The initial detection covers the first imported song in a batch, not every queued song. Mastering's separate tone/dynamics measurements still run per track. Tempo and instrument identification are not implemented.
+
+The model is [Xenova/clap-htsat-unfused](https://huggingface.co/Xenova/clap-htsat-unfused), used through [Transformers.js zero-shot audio classification](https://huggingface.co/docs/transformers.js/api/pipelines#pipelineszeroshotaudioclassificationpipeline). Runtime/model files stay under ignored `bin/detection`; worker source and its dependency declaration are under `detection/`. Run `Verify-Detection.ps1` after setup to check real cached-model inference and UI integration with a synthetic fixture; this does not measure classification accuracy on Suno songs.
 
 Windows 10/11 and built-in Windows PowerShell 5.1 are required. No Python, Node, account, subscription, or audio upload is needed. This version uses a Windows desktop launcher rather than a compiled EXE.
 
@@ -59,7 +65,7 @@ The glue amount scales the selected maximum ratio from 1:1, so amount 0 bypasses
 
 M/S compression, multiband compression, transient shaping, dynamic EQ, and de-reverb appear as explicitly unavailable cards. Local presets are supported; publishing to a marketplace is not. Source repair uses FFmpeg autoregression rather than the screenshot's claimed cubic-spline method, and is enabled manually. The leveler can smooth changing volume but does not reconstruct dynamics already lost in a Suno export.
 
-This is not a reproduction of SunoMaster's proprietary algorithms. Automatic genre/BPM detection, AI advice, community presets, multiband compression, and a packaged installer are not implemented. Repair and excitation cannot guarantee restoration of lost detail or generation artifacts. Checks compare your chosen target and ceiling; they do not certify every platform's requirements.
+This is not a reproduction of SunoMaster's proprietary algorithms. Optional local genre/vocal suggestions are now available after detection setup. BPM detection, AI mastering advice, community presets, multiband compression, and a packaged installer are not implemented. Repair and excitation cannot guarantee restoration of lost detail or generation artifacts. Checks compare your chosen target and ceiling; they do not certify every platform's requirements.
 
 The expanded genre menu follows the names shown in the supplied photos. Each selection loads an editable starting point for loudness, tone, de-essing, stereo, and compression. These are our own preset choices, not measured genre standards or copies of SunoMaster settings. Reset restores the currently selected genre. The catalog is stored in `GenrePresets.json`; `GenreCatalog.ps1` validates and loads it. Previously saved custom presets retain their saved settings.
 

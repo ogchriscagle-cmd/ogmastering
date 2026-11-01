@@ -17,5 +17,5 @@ Import-Songs @($src); Wait-Analysis
 if (!$script:analysisResult -or $script:analysisTemp) { throw 'Analysis result or cleanup failed' }
 Import-Songs @((Join-Path $PSScriptRoot 'verification\suno-studio\Silent.wav')); Wait-Analysis
 if ($script:analysisResult -or $ui.ApplyAnalysis.IsEnabled) { throw 'Silence was accepted as valid analysis' }
-Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
+Stop-SongDetection; Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
 Write-Output 'PASS: automatic import analysis, measurements, edit protection, cleanup application, temp cleanup and silence rejection.'

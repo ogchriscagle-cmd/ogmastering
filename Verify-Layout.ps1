@@ -30,5 +30,5 @@ foreach ($size in @(@(1500,900),@(1120,740))) {
     $encoder=[Windows.Media.Imaging.PngBitmapEncoder]::new(); $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
     $stream=[IO.File]::Create((Join-Path $out ("studio-"+$size[0]+'.png'))); $encoder.Save($stream); $stream.Close()
 }
-Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
+Stop-SongDetection; Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
 Write-Output 'PASS: waveform, nine DSP knobs, vocal/instrumental, styles, single/bulk/preset navigation, two window sizes.'

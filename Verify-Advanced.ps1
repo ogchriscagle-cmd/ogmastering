@@ -26,5 +26,5 @@ if ([math]::Abs($n/48000-5) -gt 0.02) { throw 'Processing changed the song durat
 $ui.AdvancedPanel.IsExpanded=$true; $surface=$window.Content; $surface.Background='#080910'; $surface.Measure([Windows.Size]::new(1500,900)); $surface.Arrange([Windows.Rect]::new(0,0,1500,900)); $surface.UpdateLayout()
 $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new(1500,900,96,96,[Windows.Media.PixelFormats]::Pbgra32); $bitmap.Render($surface)
 $encoder=[Windows.Media.Imaging.PngBitmapEncoder]::new(); $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap)); $stream=[IO.File]::Create((Join-Path $out 'advanced-layout.png')); $encoder.Save($stream); $stream.Close()
-Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
+Stop-SongDetection; Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
 Write-Output 'PASS: advanced preset roundtrip, bypass, noise NR, leveler, saturation, parallel glue, side EQ, fades, output duration, layout.'

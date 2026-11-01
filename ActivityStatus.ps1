@@ -40,12 +40,18 @@ function Update-ActivityStatus {
         $offset=if ($script:phase -eq 'reference-profile') { 0 } else { $referencePass+([math]::Max(0,$script:trackNumber-1)*$passes)+@{'source-profile'=0;'measure'=1;'render'=2;'verify'=3;'encode-mp3'=4;'verify-mp3'=5}[$script:phase] }
         $value=100*($offset+[math]::Max(0,$fraction))/[math]::Max(1,$units)
         if ($script:trackNumber -gt 0) { $detail="Song $script:trackNumber/$script:total · $([IO.Path]::GetFileName($script:source)) · $detail" }
+    } elseif ($script:detectProcess) {
+        $active=$true; $key='detect|'+$script:detectPath; $task='Detecting genre and vocals'; $detail=$ui.DetectionText.Text
     } elseif ($script:analysisProcess) {
         $active=$true; $key='analysis|'+$script:analysisPath; $task='Analyzing imported song'; $detail=$ui.AnalysisText.Text
         $fraction=Get-AudioProgress (Join-Path $script:analysisTemp 'progress.txt') $script:analysisLog
         $value=100*[math]::Max(0,$fraction)
     } elseif ($script:waveProcess) {
         $active=$true; $key='wave|'+$script:waveKey; $task='Drawing audio waveform'; $detail=$ui.WaveStatus.Text
+    } elseif ($script:footerKey -like 'detect|*') {
+        $key='detection-finished|'+$script:source; $task=if ($script:detectionResult) { 'Genre and vocal suggestions ready' } else { 'Detection stopped' }; $detail=$ui.DetectionText.Text; $value=if ($script:detectionResult) { 100 } else { 0 }
+    } elseif ($script:footerKey -like 'detection-finished|*' -and $script:detectionResult -and $ui.Stage.Text -eq 'Ready to master') {
+        $key=$script:footerKey; $task='Genre and vocal suggestions ready'; $detail=$ui.DetectionText.Text; $value=100
     } elseif ($script:footerKey -like 'analysis|*' -or $script:footerKey -like 'wave|*' -or ($script:footerKey -like 'analysis-finished|*' -and $ui.Stage.Text -eq 'Ready to master')) {
         $key='analysis-finished|'+$script:source; $task=if ($script:analysisResult) { 'Analysis complete' } else { 'Background processing finished' }; $detail=$ui.AnalysisText.Text; $value=if ($script:analysisResult) { 100 } else { 0 }
     } else {

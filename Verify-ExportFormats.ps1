@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'; $env:OG_MASTERING_TEST='1'
+﻿$ErrorActionPreference='Stop'; $env:OG_MASTERING_TEST='1'
 . (Join-Path $PSScriptRoot 'SunoMastering.ps1'); $timer.Stop()
 $src=Join-Path $PSScriptRoot 'verification\suno-studio\Suno fixture & stereo.wav'
 $out=Join-Path $PSScriptRoot 'verification\formats'; New-Item -ItemType Directory -Force -Path $out | Out-Null
@@ -23,5 +23,5 @@ foreach ($index in 0..2) {
     Write-Output ("PASS $kind export: "+($paths -join ', '))
 }
 if ((Get-FileHash -LiteralPath $src).Hash -ne $sourceHash) { throw 'Source was modified' }
-Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
+Stop-SongDetection; Stop-AutoAnalysis; Stop-Waveform; $player.Close(); $env:OG_MASTERING_TEST=$null
 Write-Output 'ALL EXPORT FORMAT CHECKS PASSED'

@@ -1,0 +1,55 @@
+name: Build standalone Windows release
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release.yml'
+      - 'packaging/**'
+      - 'release-version.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bundled FFmpeg
+        run: .\Setup.ps1
+      - name: Install local detection runtime and model
+        run: .\Setup-Detection.ps1
+      - name: Build standalone EXE
+        run: .\packaging\Build-Standalone.ps1
+      - name: Test extracted standalone application
+        run: |
+          $exe = Join-Path $pwd 'dist\OG-Mastering-1.0.0-win-x64.exe'
+          $target = Join-Path $pwd 'verification\release-package'
+          $p = Start-Process -FilePath $exe -ArgumentList @('--self-test','--extract-to',('"'+$target+'"')) -WindowStyle Hidden -PassThru -Wait
+          if ($p.ExitCode -ne 0) { Get-Content (Join-Path $target 'package-test.log') -ErrorAction SilentlyContinue; throw 'Standalone package test failed' }
+          Get-Content (Join-Path $target 'package-test.log')
+      - name: Prepare source archive and checksums
+        run: |
+          $readme = Get-ChildItem bin\download -Filter README.txt -Recurse | Select-Object -First 1
+          $text = Get-Content $readme.FullName -Raw
+          $match = [regex]::Match($text,'Source Code: https://github.com/FFmpeg/FFmpeg/commit/([0-9a-f]+)')
+          if (!$match.Success) { throw 'Could not identify bundled FFmpeg source' }
+          Invoke-WebRequest ('https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/'+$match.Groups[1].Value) -OutFile dist\FFmpeg-corresponding-source.tar.gz -UseBasicParsing
+          $lines = foreach ($file in @('dist\OG-Mastering-1.0.0-win-x64.exe','dist\FFmpeg-corresponding-source.tar.gz')) { (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+[IO.Path]::GetFileName($file) }
+          $lines | Set-Content dist\SHA256SUMS.txt -Encoding ASCII
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.0.0 --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Release v1.0.0 already exists; no assets were replaced.' }
+          gh release create v1.0.0 dist\OG-Mastering-1.0.0-win-x64.exe dist\SHA256SUMS.txt dist\FFmpeg-corresponding-source.tar.gz --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'OG Mastering 1.0.0 — Windows standalone' --notes-file RELEASE-NOTES.md --draft
+          if ($LASTEXITCODE) { throw 'Release creation failed' }
+          gh release edit v1.0.0 --repo $env:GITHUB_REPOSITORY --draft=false
+          if ($LASTEXITCODE) { throw 'Publishing release failed' }

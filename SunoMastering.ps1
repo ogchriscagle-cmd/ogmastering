@@ -15,6 +15,7 @@ $script:sliderKeys = @(); $script:checkKeys = @()
 . (Join-Path $PSScriptRoot 'AutoAnalysis.ps1')
 . (Join-Path $PSScriptRoot 'ActivityStatus.ps1')
 . (Join-Path $PSScriptRoot 'ExportFormats.ps1')
+. (Join-Path $PSScriptRoot 'SongDetection.ps1')
 Initialize-GenreMenu
 function Add-Note([string]$panel, [string]$text) {
     $item = New-Object Windows.Controls.TextBlock; $item.Text=$text; $item.TextWrapping='Wrap'; $item.Foreground='#91A5C0'; $item.FontSize=11; $item.Margin='0,0,0,14'; $ui[$panel].Children.Add($item) | Out-Null
@@ -87,7 +88,7 @@ function Set-Busy([bool]$busy) {
     $ui.Render.IsEnabled=!$busy -and $script:sources.Count -gt 0
     $ui.Cancel.IsEnabled=$busy; $ui.Progress.IsIndeterminate=$busy
     $ui.Original.IsEnabled=!$busy -and !!$script:source
-    foreach ($key in @('AutoTune','Reanalyze','ApplyAnalysis','AnalyzeTrack','ExportType')) { if ($ui[$key]) { $ui[$key].IsEnabled=!$busy -and ($key -ne 'ApplyAnalysis' -or !!$script:analysisResult) } }
+    foreach ($key in @('AutoTune','Reanalyze','ApplyAnalysis','AnalyzeTrack','ExportType','AutoDetect','DetectSong','ApplyDetection')) { if ($ui[$key]) { $ui[$key].IsEnabled=!$busy -and ($key -ne 'ApplyAnalysis' -or !!$script:analysisResult) } }
 }
 function Clear-Session {
     # Only remove a directory created for this app under the OS temp directory.
@@ -151,6 +152,7 @@ function Start-Mastering([object[]]$jobs) {
     }
     $script:settings=Get-Settings
     Stop-AutoAnalysis
+    Stop-SongDetection
     $script:baseSettings=Test-Settings $script:settings
     $script:autoTuneJob=[bool]$ui.AutoTune.IsChecked
     $script:jobs=[Collections.Generic.Queue[object]]::new(); foreach ($job in $jobs) { $script:jobs.Enqueue($job) }
@@ -289,18 +291,20 @@ $timer.Add_Tick({
     Invoke-EngineTick
     Invoke-WaveTick
     Invoke-AutoAnalysisTick
+    Invoke-SongDetectionTick
     Update-ActivityStatus
     if ($script:playing -and $player.NaturalDuration.HasTimeSpan) {
         $script:updatingSeek=$true; $ui.Seek.Value=$player.Position.TotalSeconds; $script:updatingSeek=$false
         $ui.PlaybackTime.Text='{0:mm\:ss} / {1:mm\:ss}' -f $player.Position,$player.NaturalDuration.TimeSpan
     }
 })
-$window.Add_Closing({ $timer.Stop(); $player.Close(); Stop-Waveform; Stop-AutoAnalysis; if ($script:process) { $script:process.Kill(); $script:process.WaitForExit(); $script:process.Dispose(); $script:process=$null }; Clear-Session })
+$window.Add_Closing({ $timer.Stop(); $player.Close(); Stop-Waveform; Stop-AutoAnalysis; Stop-SongDetection; if ($script:process) { $script:process.Kill(); $script:process.WaitForExit(); $script:process.Dispose(); $script:process=$null }; Clear-Session })
 Initialize-StudioUX
 Initialize-InterfaceModes
 Initialize-AutoAnalysis
 Initialize-ActivityStatus
 Initialize-ExportFormats
+Initialize-SongDetection
 Update-ActivityStatus
 $timer.Start()
 if (!$env:OG_MASTERING_TEST) { $window.ShowDialog() | Out-Null }
