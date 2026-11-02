@@ -6,6 +6,9 @@ on:
       - '.github/workflows/release.yml'
       - 'packaging/**'
       - 'release-version.txt'
+      - 'python_app/**'
+      - 'assets/**'
+      - 'GenrePresets.json'
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,27 +24,37 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python build dependencies
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install -r python_app\requirements.txt
       - name: Install bundled FFmpeg
         run: .\Setup.ps1
       - name: Install local detection runtime and model
         run: .\Setup-Detection.ps1
       - name: Build standalone EXE
-        run: .\packaging\Build-Standalone.ps1
+        run: .\packaging\Build-Python.ps1
       - name: Test extracted standalone application
         run: |
-          $exe = Join-Path $pwd 'dist\OG-Mastering-1.0.0-win-x64.exe'
+          $version = (Get-Content python_app/version.txt -Raw).Trim()
+          $exe = Join-Path $pwd ('dist\OG-Studio-Mastering-'+$version+'-win-x64.exe')
           $target = Join-Path $pwd 'verification\release-package'
-          $p = Start-Process -FilePath $exe -ArgumentList @('--self-test','--extract-to',('"'+$target+'"')) -WindowStyle Hidden -PassThru -Wait
-          if ($p.ExitCode -ne 0) { Get-Content (Join-Path $target 'package-test.log') -ErrorAction SilentlyContinue; throw 'Standalone package test failed' }
-          Get-Content (Join-Path $target 'package-test.log')
+          $env:OG_TEST_OUTPUT = $target
+          $p = Start-Process -FilePath $exe -ArgumentList '--self-test' -WindowStyle Hidden -PassThru -Wait
+          if ($p.ExitCode -ne 0) { Get-Content (Join-Path $target 'engine-test-error.txt') -ErrorAction SilentlyContinue; throw 'Standalone package test failed' }
+          Get-Content (Join-Path $target 'engine-test.txt')
       - name: Prepare source archive and checksums
         run: |
-          $readme = Get-ChildItem bin\download -Filter README.txt -Recurse | Select-Object -First 1
+          $readme = Get-ChildItem bin -Filter README.txt -Recurse | Where-Object { $_.FullName -notlike '*detection*' } | Select-Object -First 1
           $text = Get-Content $readme.FullName -Raw
           $match = [regex]::Match($text,'Source Code: https://github.com/FFmpeg/FFmpeg/commit/([0-9a-f]+)')
           if (!$match.Success) { throw 'Could not identify bundled FFmpeg source' }
           Invoke-WebRequest ('https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/'+$match.Groups[1].Value) -OutFile dist\FFmpeg-corresponding-source.tar.gz -UseBasicParsing
-          $lines = foreach ($file in @('dist\OG-Mastering-1.0.0-win-x64.exe','dist\FFmpeg-corresponding-source.tar.gz')) { (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+[IO.Path]::GetFileName($file) }
+          $version = (Get-Content python_app/version.txt -Raw).Trim()
+          $lines = foreach ($file in @(('dist\OG-Studio-Mastering-'+$version+'-win-x64.exe'),'dist\FFmpeg-corresponding-source.tar.gz')) { (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+[IO.Path]::GetFileName($file) }
           $lines | Set-Content dist\SHA256SUMS.txt -Encoding ASCII
       - name: Publish GitHub release
         env:
@@ -49,8 +62,10 @@ jobs:
         run: |
           $existing = gh release list --repo $env:GITHUB_REPOSITORY --json tagName --limit 100 | ConvertFrom-Json
           if ($LASTEXITCODE) { throw 'Could not list releases' }
-          if ($existing.tagName -contains 'v1.0.0') { throw 'Release v1.0.0 already exists; no assets were replaced.' }
-          gh release create v1.0.0 dist\OG-Mastering-1.0.0-win-x64.exe dist\SHA256SUMS.txt dist\FFmpeg-corresponding-source.tar.gz --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'OG Mastering 1.0.0 — Windows standalone' --notes-file RELEASE-NOTES.md --draft
+          $version = (Get-Content python_app/version.txt -Raw).Trim()
+          $tag = 'v'+$version
+          if ($existing.tagName -contains $tag) { throw ('Release '+$tag+' already exists; no assets were replaced.') }
+          gh release create $tag ('dist\OG-Studio-Mastering-'+$version+'-win-x64.exe') dist\SHA256SUMS.txt dist\FFmpeg-corresponding-source.tar.gz --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title ('OG Studio Mastering '+$version+' — Windows standalone') --notes-file RELEASE-NOTES.md --draft
           if ($LASTEXITCODE) { throw 'Release creation failed' }
-          gh release edit v1.0.0 --repo $env:GITHUB_REPOSITORY --draft=false
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false
           if ($LASTEXITCODE) { throw 'Publishing release failed' }

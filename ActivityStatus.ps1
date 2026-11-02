@@ -1,14 +1,14 @@
 ﻿function Initialize-ActivityStatus {
     $script:activityEntries=[Collections.Generic.List[string]]::new(); $script:footerKey=''; $script:footerStarted=[DateTime]::UtcNow
     $root=$window.Content; $row=New-Object Windows.Controls.RowDefinition; $row.Height='Auto'; $root.RowDefinitions.Add($row)
-    $border=New-Object Windows.Controls.Border; $border.Background='#0D141F'; $border.BorderBrush='#234051'; $border.BorderThickness='0,1,0,0'; $border.Padding='19,10'; [Windows.Controls.Grid]::SetRow($border,2)
+    $border=New-Object Windows.Controls.Border; $border.Background=(Get-AppBrush '#0D141F'); $border.BorderBrush=(Get-AppBrush '#234051'); $border.BorderThickness='0,1,0,0'; $border.Padding='19,10'; [Windows.Controls.Grid]::SetRow($border,2)
     $stack=New-Object Windows.Controls.StackPanel; $head=New-Object Windows.Controls.DockPanel
-    $percent=New-Object Windows.Controls.TextBlock; $percent.Text='Ready'; $percent.Foreground='#1BD4EB'; $percent.FontSize=11; [Windows.Controls.DockPanel]::SetDock($percent,'Right'); $head.Children.Add($percent) | Out-Null; $ui.FooterPercent=$percent
+    $percent=New-Object Windows.Controls.TextBlock; $percent.Text='Ready'; $percent.Foreground=(Get-AppBrush '#1BD4EB'); $percent.FontSize=11; [Windows.Controls.DockPanel]::SetDock($percent,'Right'); $head.Children.Add($percent) | Out-Null; $ui.FooterPercent=$percent
     $title=New-Object Windows.Controls.TextBlock; $title.Text='Ready · import a song to begin'; $title.FontWeight='SemiBold'; $title.FontSize=12; $head.Children.Add($title) | Out-Null; $ui.FooterTask=$title; $stack.Children.Add($head) | Out-Null
-    $bar=New-Object Windows.Controls.ProgressBar; $bar.Height=5; $bar.Minimum=0; $bar.Maximum=100; $bar.Foreground='#13CEE7'; $bar.Background='#243245'; $bar.Margin='0,8,0,6'; $ui.FooterProgress=$bar; $stack.Children.Add($bar) | Out-Null
-    $detail=New-Object Windows.Controls.TextBlock; $detail.Text='Local audio engine is idle.'; $detail.Foreground='#8CA4BF'; $detail.FontSize=10; $detail.TextTrimming='CharacterEllipsis'; $ui.FooterDetail=$detail; $stack.Children.Add($detail) | Out-Null
+    $bar=New-Object Windows.Controls.ProgressBar; $bar.Height=5; $bar.Minimum=0; $bar.Maximum=100; $bar.Foreground=(Get-AppBrush '#13CEE7'); $bar.Background=(Get-AppBrush '#243245'); $bar.Margin='0,8,0,6'; $ui.FooterProgress=$bar; $stack.Children.Add($bar) | Out-Null
+    $detail=New-Object Windows.Controls.TextBlock; $detail.Text='Local audio engine is idle.'; $detail.Foreground=(Get-AppBrush '#8CA4BF'); $detail.FontSize=10; $detail.TextTrimming='CharacterEllipsis'; $ui.FooterDetail=$detail; $stack.Children.Add($detail) | Out-Null
     $expander=New-Object Windows.Controls.Expander; $expander.Header='Recent activity'; $expander.Margin='0,5,0,0'; $expander.FontSize=10
-    $scroll=New-Object Windows.Controls.ScrollViewer; $scroll.Height=92; $scroll.VerticalScrollBarVisibility='Auto'; $log=New-Object Windows.Controls.TextBlock; $log.FontFamily='Consolas'; $log.FontSize=10; $log.Foreground='#8FA8C4'; $log.TextWrapping='Wrap'; $scroll.Content=$log; $expander.Content=$scroll; $ui.ActivityLog=$log; $stack.Children.Add($expander) | Out-Null
+    $scroll=New-Object Windows.Controls.ScrollViewer; $scroll.Height=92; $scroll.VerticalScrollBarVisibility='Auto'; $log=New-Object Windows.Controls.TextBlock; $log.FontFamily='Consolas'; $log.FontSize=10; $log.Foreground=(Get-AppBrush '#8FA8C4'); $log.TextWrapping='Wrap'; $scroll.Content=$log; $expander.Content=$scroll; $ui.ActivityLog=$log; $stack.Children.Add($expander) | Out-Null
     $border.Child=$stack; $root.Children.Add($border) | Out-Null
 }
 function Get-AudioProgress([string]$progressPath,[string]$logPath,[double]$limit=0) {

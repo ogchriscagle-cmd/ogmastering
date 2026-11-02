@@ -12,11 +12,11 @@ function Add-Knob([string]$panel,[string]$key,[string]$title,[double]$min,[doubl
     $grid=New-Object Windows.Controls.Grid; $grid.ToolTip="$title · drag left/right, scroll, or use arrow keys"; $grid.Margin='0,0,0,5'
     foreach ($height in @(68,18,14)) { $row=New-Object Windows.Controls.RowDefinition; $row.Height=$height; $grid.RowDefinitions.Add($row) }
     $canvas=New-Object Windows.Controls.Canvas; $canvas.Width=78; $canvas.Height=78; $canvas.HorizontalAlignment='Center'; $canvas.Margin='0,-5,0,0'
-    $circle=New-Object Windows.Shapes.Ellipse; $circle.Width=54; $circle.Height=54; $circle.Stroke='#242633'; $circle.StrokeThickness=4; $circle.Fill='#0C0E16'; [Windows.Controls.Canvas]::SetLeft($circle,12); [Windows.Controls.Canvas]::SetTop($circle,12); $canvas.Children.Add($circle) | Out-Null
-    $arc=New-Object Windows.Shapes.Path; $arc.Stroke=$color; $arc.StrokeThickness=3.5; $arc.StrokeStartLineCap='Round'; $arc.StrokeEndLineCap='Round'; $canvas.Children.Add($arc) | Out-Null
-    $needle=New-Object Windows.Shapes.Line; $needle.X1=39; $needle.Y1=39; $needle.Stroke=$color; $needle.StrokeThickness=3; $needle.StrokeEndLineCap='Round'; $canvas.Children.Add($needle) | Out-Null
-    $dot=New-Object Windows.Shapes.Ellipse; $dot.Width=7; $dot.Height=7; $dot.Fill=$color; [Windows.Controls.Canvas]::SetLeft($dot,35.5); [Windows.Controls.Canvas]::SetTop($dot,35.5); $canvas.Children.Add($dot) | Out-Null
-    $value=New-Object Windows.Controls.TextBlock; $value.HorizontalAlignment='Center'; $value.FontSize=11; $value.FontWeight='Bold'; $value.Foreground=$color; [Windows.Controls.Grid]::SetRow($value,1)
+    $circle=New-Object Windows.Shapes.Ellipse; $circle.Width=54; $circle.Height=54; $circle.Stroke=(Get-AppBrush '#242633'); $circle.StrokeThickness=4; $circle.Fill=(Get-AppBrush '#0C0E16'); [Windows.Controls.Canvas]::SetLeft($circle,12); [Windows.Controls.Canvas]::SetTop($circle,12); $canvas.Children.Add($circle) | Out-Null
+    $arc=New-Object Windows.Shapes.Path; $arc.Stroke=(Get-AppBrush $color); $arc.StrokeThickness=3.5; $arc.StrokeStartLineCap='Round'; $arc.StrokeEndLineCap='Round'; $canvas.Children.Add($arc) | Out-Null
+    $needle=New-Object Windows.Shapes.Line; $needle.X1=39; $needle.Y1=39; $needle.Stroke=(Get-AppBrush $color); $needle.StrokeThickness=3; $needle.StrokeEndLineCap='Round'; $canvas.Children.Add($needle) | Out-Null
+    $dot=New-Object Windows.Shapes.Ellipse; $dot.Width=7; $dot.Height=7; $dot.Fill=(Get-AppBrush $color); [Windows.Controls.Canvas]::SetLeft($dot,35.5); [Windows.Controls.Canvas]::SetTop($dot,35.5); $canvas.Children.Add($dot) | Out-Null
+    $value=New-Object Windows.Controls.TextBlock; $value.HorizontalAlignment='Center'; $value.FontSize=11; $value.FontWeight='Bold'; $value.Foreground=(Get-AppBrush $color); [Windows.Controls.Grid]::SetRow($value,1)
     $label=New-Object Windows.Controls.TextBlock; $label.Text=$title.ToUpperInvariant(); $label.HorizontalAlignment='Center'; $label.FontSize=8; [Windows.Controls.Grid]::SetRow($label,2)
     $slider=New-Object Windows.Controls.Slider; $slider.Minimum=$min; $slider.Maximum=$max; $slider.TickFrequency=$step; $slider.SmallChange=$step; $slider.LargeChange=$step*5; $slider.Opacity=0; $slider.Margin='0'; $slider.Cursor='SizeWE'; $slider.IsMoveToPointEnabled=$true; $slider.HorizontalAlignment='Center'; $slider.Width=76
     [Windows.Automation.AutomationProperties]::SetName($slider,$title)
@@ -74,9 +74,9 @@ function Invoke-WaveTick {
 }
 function Select-StudioMode([string]$mode) {
     $script:importMode=$mode
-    foreach ($key in @('SingleMode','BulkMode','PresetsMode')) { $ui[$key].Background='#10151E'; $ui[$key].BorderBrush='#26303A' }
+    foreach ($key in @('SingleMode','BulkMode','PresetsMode')) { $ui[$key].Background=(Get-AppBrush '#10151E'); $ui[$key].BorderBrush=(Get-AppBrush '#26303A') }
     $key= switch ($mode) { 'bulk' {'BulkMode'} 'presets' {'PresetsMode'} default {'SingleMode'} }
-    $ui[$key].Background='#103346'; $ui[$key].BorderBrush='#0AA9C6'
+    $ui[$key].Background=(Get-AppBrush '#103346'); $ui[$key].BorderBrush=(Get-AppBrush '#0AA9C6')
     if ($mode -eq 'presets') { $ui.PresetPanel.IsExpanded=$true; $ui.PresetPanel.BringIntoView() }
     $ui.Import.Content=if ($mode -eq 'bulk') { '+  Choose songs' } else { '+  Choose song' }
 }
@@ -93,7 +93,7 @@ function Set-Style([string]$style) {
         'Modern' { $s.Air=1; $s.Mud=1.5; $s.Glue=15; $s.Width=1.1 }
     }
     Set-Settings $s
-    foreach ($button in $ui.StyleButtons.Children) { $button.Background='#14151F'; $button.BorderBrush='#262733'; if ($button.Content -eq $style) { $button.Background='#0B303C'; $button.BorderBrush='#079FB8' } }
+    foreach ($button in $ui.StyleButtons.Children) { $button.Background=(Get-AppBrush '#14151F'); $button.BorderBrush=(Get-AppBrush '#262733'); if ($button.Content -eq $style) { $button.Background=(Get-AppBrush '#0B303C'); $button.BorderBrush=(Get-AppBrush '#079FB8') } }
     $ui.Status.Text="$style style applied. Master again to hear changed settings."
 }
 function Initialize-StudioUX {
@@ -106,7 +106,7 @@ function Initialize-StudioUX {
     $ui.PresetsMode.Add_Click({ if (!$script:busy) { Select-StudioMode 'presets' } })
     $ui.VocalsType.Add_Click({ if (!$script:busy) { $ui.DeEss.Value=20; $ui.Status.Text='Vocal starting point: gentle de-essing enabled. Adjust it by ear.' } })
     $ui.InstrumentalType.Add_Click({ if (!$script:busy) { $ui.DeEss.Value=0; $ui.Status.Text='Instrumental starting point: de-essing is off.' } })
-    $ui.ResetQuick.Add_Click({ if (!$script:busy) { Set-Settings (Get-CatalogGenreSettings ([math]::Max(0,$ui.Preset.SelectedIndex))); foreach ($button in $ui.StyleButtons.Children) { $button.Background='#14151F'; $button.BorderBrush='#262733' } } })
+    $ui.ResetQuick.Add_Click({ if (!$script:busy) { Set-Settings (Get-CatalogGenreSettings ([math]::Max(0,$ui.Preset.SelectedIndex))); foreach ($button in $ui.StyleButtons.Children) { $button.Background=(Get-AppBrush '#14151F'); $button.BorderBrush=(Get-AppBrush '#262733') } } })
     $ui.WaveHost.Add_MouseLeftButtonDown({ if ($script:playing -and $ui.Seek.Maximum -gt 1) { $duration=if ($script:waveDuration -gt 0) { $script:waveDuration } else { $ui.Seek.Maximum }; $ui.Seek.Value=($_.GetPosition($ui.WaveHost).X/[math]::Max(1,$ui.WaveHost.ActualWidth))*$duration } })
     $window.Add_PreviewKeyDown({
         if ($_.OriginalSource -is [Windows.Controls.Primitives.TextBoxBase] -or $_.OriginalSource -is [Windows.Controls.Primitives.RangeBase] -or $_.OriginalSource -is [Windows.Controls.ComboBox]) { return }

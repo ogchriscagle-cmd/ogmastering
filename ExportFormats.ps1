@@ -3,7 +3,7 @@
     return @([IO.Path]::ChangeExtension($path,('.'+$kind)))
 }
 function Initialize-ExportFormats {
-    $label=New-Object Windows.Controls.TextBlock; $label.Text='EXPORT FORMAT'; $label.Foreground='#7D96B2'; $label.FontSize=9; $label.Margin='0,14,0,0'
+    $label=New-Object Windows.Controls.TextBlock; $label.Text='EXPORT FORMAT'; $label.Foreground=(Get-AppBrush '#7D96B2'); $label.FontSize=9; $label.Margin='0,14,0,0'
     $combo=New-Object Windows.Controls.ComboBox; foreach ($name in @('WAV (lossless)','MP3 (320 kbps)','Both WAV + MP3')) { $combo.Items.Add($name) | Out-Null }; $combo.SelectedIndex=0; $ui.ExportType=$combo
     $ui.TargetControl.Parent.Children.Add($label) | Out-Null; $ui.TargetControl.Parent.Children.Add($combo) | Out-Null
 }

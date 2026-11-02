@@ -1,6 +1,8 @@
 param([string]$OutputDirectory='dist')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
+$version=(Get-Content -LiteralPath (Join-Path $root 'release-version.txt') -Raw).Trim()
+if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version.' }
 $out=if ([IO.Path]::IsPathRooted($OutputDirectory)) { $OutputDirectory } else { Join-Path $root $OutputDirectory }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $runtime=Join-Path $root 'bin\detection'
@@ -10,6 +12,8 @@ $payload=Join-Path $out 'payload.zip'
 $entries=[Collections.Generic.List[object]]::new()
 foreach ($file in Get-ChildItem -LiteralPath $root -File) { if ($file.Extension -in @('.ps1','.xaml','.json','.md') -and $file.Name -notlike 'Verify-*' -and $file.Name -notlike 'Setup*' -and $file.Name -ne 'Verify.ps1') { $entries.Add(@{Source=$file.FullName;Path=$file.Name}) } }
 $entries.Add(@{Source=(Join-Path $PSScriptRoot 'Verify-Package.ps1');Path='Verify-Package.ps1'})
+$entries.Add(@{Source=(Join-Path $root 'assets\og-blue.ico');Path='assets/og-blue.ico'})
+$entries.Add(@{Source=(Join-Path $root 'release-version.txt');Path='release-version.txt'})
 $entries.Add(@{Source=(Join-Path $PSScriptRoot 'CLAP-MODEL-CARD.md');Path='notices/CLAP-MODEL-CARD.md'})
 $entries.Add(@{Source=(Join-Path $PSScriptRoot 'APACHE-2.0.txt');Path='notices/CLAP-APACHE-2.0.txt'})
 $entries.Add(@{Source=(Join-Path $root 'bin\ffmpeg.exe');Path='bin/ffmpeg.exe'})
@@ -29,8 +33,10 @@ try {
     try { $count=0; foreach ($entry in $entries) { [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$entry.Source,$entry.Path,[IO.Compression.CompressionLevel]::Optimal) | Out-Null; $count++; if ($count%200 -eq 0) { Write-Output ("Packed $count / $($entries.Count) files") } } } finally { $zip.Dispose() }
 } finally { $stream.Dispose() }
 $csc=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-$exe=Join-Path $out 'OG-Mastering-1.0.0-win-x64.exe'
-& $csc /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll ("/out:"+$exe) (Join-Path $PSScriptRoot 'Launcher.cs')
+$exe=Join-Path $out ('OG-Mastering-'+$version+'-win-x64.exe')
+$launcherSource=Join-Path $out 'Launcher.generated.cs'
+[IO.File]::WriteAllText($launcherSource,([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Launcher.cs')).Replace('1.0.0',$version)))
+& $csc /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll ("/win32icon:"+(Join-Path $root 'assets\og-blue.ico')) ("/out:"+$exe) $launcherSource
 if ($LASTEXITCODE) { throw 'Launcher compilation failed.' }
 $hash=(Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash
 $exeStream=[IO.File]::Open($exe,[IO.FileMode]::Append)

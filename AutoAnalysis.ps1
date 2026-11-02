@@ -56,9 +56,9 @@ function Invoke-AutoAnalysisTick {
 }
 function Initialize-AutoAnalysis {
     $script:analysisProcess=$null; $script:analysisTemp=$null; $script:analysisResult=$null
-    $border=New-Object Windows.Controls.Border; $border.Background='#0C1720'; $border.BorderBrush='#1C3A4B'; $border.BorderThickness='1'; $border.CornerRadius='12'; $border.Padding='13'; $border.Margin='0,0,0,14'
+    $border=New-Object Windows.Controls.Border; $border.Background=(Get-AppBrush '#0C1720'); $border.BorderBrush=(Get-AppBrush '#1C3A4B'); $border.BorderThickness='1'; $border.CornerRadius='12'; $border.Padding='13'; $border.Margin='0,0,0,14'
     $stack=New-Object Windows.Controls.StackPanel
-    $text=New-Object Windows.Controls.TextBlock; $text.Text='AUTO ANALYSIS · import a song for measurements and cleanup suggestions.'; $text.Foreground='#90ABC7'; $text.FontSize=11; $text.TextWrapping='Wrap'; $text.Margin='0,0,0,9'; $stack.Children.Add($text) | Out-Null; $ui.AnalysisText=$text
+    $text=New-Object Windows.Controls.TextBlock; $text.Text='AUTO ANALYSIS · import a song for measurements and cleanup suggestions.'; $text.Foreground=(Get-AppBrush '#90ABC7'); $text.FontSize=11; $text.TextWrapping='Wrap'; $text.Margin='0,0,0,9'; $stack.Children.Add($text) | Out-Null; $ui.AnalysisText=$text
     $row=New-Object Windows.Controls.WrapPanel
     $auto=New-Object Windows.Controls.CheckBox; $auto.Content='Auto-tune conservative cleanup'; $auto.IsChecked=$true; $auto.Margin='0,6,15,4'; $ui.AutoTune=$auto; $row.Children.Add($auto) | Out-Null
     foreach ($spec in @(@('ApplyAnalysis','Apply suggestions'),@('Reanalyze','Re-analyze'))) { $button=New-Object Windows.Controls.Button; $button.Content=$spec[1]; $button.Padding='10,4'; $button.FontSize=10; $ui[$spec[0]]=$button; $row.Children.Add($button) | Out-Null }

@@ -1,3 +1,12 @@
 @echo off
 cd /d "%~dp0"
-start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File "%~dp0Launch-App.ps1"
+if exist "dist\OG-Studio-Mastering-2.0.0-win-x64.exe" (
+  start "" "dist\OG-Studio-Mastering-2.0.0-win-x64.exe"
+  exit /b 0
+)
+if not exist ".venv\Scripts\pythonw.exe" (
+  echo Install Python dependencies using python_app\README.md first.
+  pause
+  exit /b 1
+)
+start "" ".venv\Scripts\pythonw.exe" "python_app\app.py"

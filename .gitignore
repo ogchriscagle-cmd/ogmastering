@@ -14,3 +14,9 @@
 __pycache__/
 node_modules/
 /dist/
+
+/.venv/
+/build/
+*.spec
+
+!python_app/ogmastering.spec

@@ -11,11 +11,24 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("OG Mastering")]
 [assembly: AssemblyVersion("1.0.0.0")]
 internal static class Launcher {
+    static Form CreateSplash(out Label status,out ProgressBar progress) {
+        var form=new Form {Text="OG Mastering",ClientSize=new System.Drawing.Size(540,300),StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.None,BackColor=System.Drawing.Color.FromArgb(9,14,24),ShowInTaskbar=true};
+        form.Icon=System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
+        var logo=new PictureBox {Left=30,Top=35,Width=88,Height=88,SizeMode=PictureBoxSizeMode.Zoom,Image=form.Icon.ToBitmap()};form.Controls.Add(logo);
+        form.Controls.Add(new Label {Text="OG MASTERING",Left=138,Top=42,Width=380,Height=42,ForeColor=System.Drawing.Color.FromArgb(73,169,255),Font=new System.Drawing.Font("Segoe UI",23,System.Drawing.FontStyle.Bold)});
+        form.Controls.Add(new Label {Text="SUNO STUDIO  /  LOCAL AUDIO ENGINE",Left=141,Top=92,Width=360,Height=25,ForeColor=System.Drawing.Color.FromArgb(150,170,195),Font=new System.Drawing.Font("Segoe UI",9)});
+        status=new Label {Text="Starting your mastering studio...",Left=32,Top=172,Width=480,Height=30,ForeColor=System.Drawing.Color.White,Font=new System.Drawing.Font("Segoe UI",11)};form.Controls.Add(status);
+        progress=new ProgressBar {Left=32,Top=215,Width=476,Height=7,Style=ProgressBarStyle.Marquee};form.Controls.Add(progress);
+        form.Controls.Add(new Label {Text="v1.0.0   |   OFFLINE. PRIVATE. YOURS.",Left=32,Top=247,Width=476,Height=20,ForeColor=System.Drawing.Color.FromArgb(115,140,170),Font=new System.Drawing.Font("Segoe UI",9)});
+        return form;
+    }
     [STAThread] static int Main(string[] args) {
         Form splash = null;
         try {
             Application.EnableVisualStyles();
             bool test = Array.IndexOf(args, "--self-test") >= 0;
+            Label label;ProgressBar bar;splash=CreateSplash(out label,out bar);
+            if(!test){splash.Show();Application.DoEvents();}
             string target = null;
             for (int i=0;i<args.Length-1;i++) if (args[i]=="--extract-to") target=Path.GetFullPath(args[i+1]);
             using (var file=File.OpenRead(Assembly.GetExecutingAssembly().Location)) {
@@ -31,15 +44,13 @@ internal static class Launcher {
                 if (!ready) {
                     if (Directory.Exists(target) && Directory.GetFileSystemEntries(target).Length>0) throw new IOException("The extraction folder is not empty. Choose a new folder or remove the incomplete OG Mastering cache folder: "+target);
                     Directory.CreateDirectory(target);
-                    splash=new Form {Text="OG Mastering",Width=440,Height=150,StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,ControlBox=false};
-                    var label=new Label {Text="Preparing OG Mastering for first use...",Left=20,Top=20,Width=390};
-                    var bar=new ProgressBar {Left=20,Top=57,Width=390,Height=16}; splash.Controls.Add(label);splash.Controls.Add(bar);splash.Show();Application.DoEvents();
                     using(var segment=new SegmentStream(file,offset,file.Length-offset-48)) {
                         label.Text="Checking bundled application files...";Application.DoEvents();
                         using(var sha=SHA256.Create()) { string actual=BitConverter.ToString(sha.ComputeHash(segment)).Replace("-","").ToLowerInvariant(); if(actual!=hash)throw new InvalidDataException("Package checksum failed. Download the EXE again."); }
                         segment.Position=0;
                         using(var zip=new ZipArchive(segment,ZipArchiveMode.Read,true)) {
                             long total=0,done=0;foreach(var entry in zip.Entries) total+=entry.Length;
+                            bar.Style=ProgressBarStyle.Continuous;
                             string prefix=Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar;
                             foreach(var entry in zip.Entries) {
                                 string destination=Path.GetFullPath(Path.Combine(target,entry.FullName.Replace('/',Path.DirectorySeparatorChar)));
@@ -52,7 +63,6 @@ internal static class Launcher {
                         }
                     }
                     File.WriteAllText(marker,hash);
-                    splash.Close();splash=null;
                 }
                 string script=Path.Combine(target,test?"Verify-Package.ps1":"Launch-App.ps1");
                 var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),"System32","WindowsPowerShell","v1.0","powershell.exe"));
@@ -60,7 +70,20 @@ internal static class Launcher {
                 start.WorkingDirectory=target;start.UseShellExecute=false;start.CreateNoWindow=true;start.WindowStyle=ProcessWindowStyle.Hidden;
                 // Test-only environment flags from a parent shell must not hide the real app.
                 start.EnvironmentVariables.Remove("OG_MASTERING_TEST");
-                using(var process=Process.Start(start)){if(test){process.WaitForExit();return process.ExitCode;}}
+                {
+                    // A fresh per-launch event closes the splash only after WPF renders.
+                    string eventName="Local\\OGMastering-"+Guid.NewGuid().ToString("N");
+                    using(var rendered=new System.Threading.EventWaitHandle(false,System.Threading.EventResetMode.ManualReset,eventName)) {
+                        start.EnvironmentVariables["OG_STARTUP_EVENT"]=eventName;
+                        label.Text="Loading controls and audio tools...";bar.Style=ProgressBarStyle.Marquee;Application.DoEvents();
+                        using(var process=Process.Start(start)) {
+                            if(test){process.WaitForExit();splash.Dispose();return process.ExitCode;}
+                            var deadline=DateTime.UtcNow.AddSeconds(90);
+                            while(!rendered.WaitOne(30) && !process.HasExited && DateTime.UtcNow<deadline){Application.DoEvents();}
+                        }
+                    }
+                }
+                splash.Close();splash.Dispose();splash=null;
             }
             return 0;
         } catch(Exception error) {

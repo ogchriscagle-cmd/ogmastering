@@ -4,8 +4,10 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GenreCatalog.ps1')
 $script:ffmpeg = Join-Path $PSScriptRoot 'bin\ffmpeg.exe'
 if (!(Test-Path -LiteralPath $script:ffmpeg)) { $found = Get-Command ffmpeg -ErrorAction SilentlyContinue; if ($found) { $script:ffmpeg = $found.Source } }
-[xml]$xaml = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Studio.xaml') -Raw -Encoding UTF8
+. (Join-Path $PSScriptRoot 'Themes.ps1')
+[xml]$xaml = Convert-ThemeXaml (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Studio.xaml') -Raw -Encoding UTF8)
 $script:window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+$script:window.Icon = [Windows.Media.Imaging.BitmapFrame]::Create([uri](Join-Path $PSScriptRoot 'assets\og-blue.ico'))
 $script:ui = @{}
 foreach ($match in [regex]::Matches($xaml.OuterXml, 'x:Name="([^"]+)"')) { $name=$match.Groups[1].Value; $ui[$name]=$window.FindName($name) }
 $script:sliderKeys = @(); $script:checkKeys = @()
@@ -18,11 +20,11 @@ $script:sliderKeys = @(); $script:checkKeys = @()
 . (Join-Path $PSScriptRoot 'SongDetection.ps1')
 Initialize-GenreMenu
 function Add-Note([string]$panel, [string]$text) {
-    $item = New-Object Windows.Controls.TextBlock; $item.Text=$text; $item.TextWrapping='Wrap'; $item.Foreground='#91A5C0'; $item.FontSize=11; $item.Margin='0,0,0,14'; $ui[$panel].Children.Add($item) | Out-Null
+    $item = New-Object Windows.Controls.TextBlock; $item.Text=$text; $item.TextWrapping='Wrap'; $item.Foreground=(Get-AppBrush '#91A5C0'); $item.FontSize=11; $item.Margin='0,0,0,14'; $ui[$panel].Children.Add($item) | Out-Null
 }
 function Add-Control([string]$panel, [string]$key, [string]$title, [double]$min, [double]$max, [double]$step, [string]$unit='') {
-    $quick = @{ Bass=@('Bass','#FFAC06'); Excite=@('Harmonics','#FF4E58'); Harsh=@('Smoothness','#FF963B'); Air=@('Brightness','#0DD3EF'); Mud=@('Clarity','#20D5A3'); Glue=@('Glue','#C37DFF'); Width=@('Width','#A58AFF'); DeEss=@('De-esser','#629DFF'); Match=@('Ref match','#25DBB4') }
-    if ($key -eq 'Loudness') { Add-Knob TargetControl $key 'Custom' $min $max $step $unit '#12D4EF'; return }
+    $quick = @{ Bass=@('Bass',(Get-AppBrush '#FFAC06')); Excite=@('Harmonics',(Get-AppBrush '#FF4E58')); Harsh=@('Smoothness',(Get-AppBrush '#FF963B')); Air=@('Brightness',(Get-AppBrush '#0DD3EF')); Mud=@('Clarity',(Get-AppBrush '#20D5A3')); Glue=@('Glue',(Get-AppBrush '#C37DFF')); Width=@('Width',(Get-AppBrush '#A58AFF')); DeEss=@('De-esser',(Get-AppBrush '#629DFF')); Match=@('Ref match',(Get-AppBrush '#25DBB4')) }
+    if ($key -eq 'Loudness') { Add-Knob TargetControl $key 'Custom' $min $max $step $unit (Get-AppBrush '#12D4EF'); return }
     if ($quick.ContainsKey($key)) { $q=$quick[$key]; Add-Knob QuickControls $key $q[0] $min $max $step $unit $q[1]; return }
     $label = New-Object Windows.Controls.TextBlock
     $slider = New-Object Windows.Controls.Slider; $slider.Minimum=$min; $slider.Maximum=$max; $slider.TickFrequency=$step
@@ -64,7 +66,7 @@ $knobViews=@{}; foreach ($key in $knobOrder) { $knobViews[$key]=$ui[$key].Parent
 $ui.QuickControls.Children.Clear(); foreach ($key in $knobOrder) { $ui.QuickControls.Children.Add($knobViews[$key]) | Out-Null }
 Initialize-AdvancedControls
 function Set-Settings($settings) {
-    foreach ($button in $ui.StyleButtons.Children) { $button.Background='#14151F'; $button.BorderBrush='#262733' }
+    foreach ($button in $ui.StyleButtons.Children) { $button.Background=(Get-AppBrush '#14151F'); $button.BorderBrush=(Get-AppBrush '#262733') }
     foreach ($key in $script:sliderKeys) { $ui[$key].Value=[double]$settings[$key] }
     foreach ($key in $script:checkKeys) { $ui[$key].IsChecked=[bool]$settings[$key] }
     $ui.Format.SelectedIndex=[int]$settings.Format
@@ -183,8 +185,8 @@ function Play-Version([string]$version) {
     $script:pendingSeek=$player.Position.TotalSeconds; $script:playing=$version
     $player.Open([uri]$path); Update-PlaybackGain; $player.Play()
     Start-Waveform $path $version
-    $ui.Original.Background=if ($version -eq 'original') { '#20222D' } else { '#101019' }
-    $ui.Mastered.Background=if ($version -eq 'master') { '#103744' } else { '#101019' }
+    $ui.Original.Background=if ($version -eq 'original') { (Get-AppBrush '#20222D') } else { (Get-AppBrush '#101019') }
+    $ui.Mastered.Background=if ($version -eq 'master') { (Get-AppBrush '#103744') } else { (Get-AppBrush '#101019') }
 }
 function Invoke-EngineTick {
     if (!$script:process -or !$script:process.HasExited) { return }
@@ -289,6 +291,7 @@ $ui.SaveReport.Add_Click({ $d=New-Object Microsoft.Win32.SaveFileDialog; $d.Filt
 $script:timer=New-Object Windows.Threading.DispatcherTimer; $timer.Interval=[TimeSpan]::FromMilliseconds(250)
 $timer.Add_Tick({
     Invoke-EngineTick
+    Invoke-UpdateCheckTick
     Invoke-WaveTick
     Invoke-AutoAnalysisTick
     Invoke-SongDetectionTick
@@ -305,6 +308,12 @@ Initialize-AutoAnalysis
 Initialize-ActivityStatus
 Initialize-ExportFormats
 Initialize-SongDetection
+Initialize-Themes
+. (Join-Path $PSScriptRoot 'Toolbar.ps1')
+Initialize-Toolbar
 Update-ActivityStatus
 $timer.Start()
-if (!$env:OG_MASTERING_TEST) { $window.ShowDialog() | Out-Null }
+if (!$env:OG_MASTERING_TEST) {
+    $window.Add_ContentRendered({ if ($env:OG_STARTUP_EVENT) { try { $readyEvent=[Threading.EventWaitHandle]::OpenExisting($env:OG_STARTUP_EVENT); $readyEvent.Set() | Out-Null; $readyEvent.Dispose() } catch { } } })
+    $window.ShowDialog() | Out-Null
+}
