@@ -115,9 +115,9 @@ class Engine:
             a,b=self.bands(source),self.bands(reference); am,bm=sum(a)/6,sum(b)/6
             gains=[round(max(-3,min(3,(y-bm)-(x-am)))*s['Match']/100,2) if min(x,y)>=-65 else 0 for x,y in zip(a,b)]
         processing=chain(s,gains,original['duration']); seconds=original['duration']
-        paths=[]; stem=Path(source).stem+' - OG Master'; n=1
+        paths=[]; stem=Path(source).stem+' - mastered'; n=1
         extensions=['wav','mp3'] if kind=='both' else [kind]
-        while any((folder/(stem+('.'+e))).exists() for e in extensions): n+=1; stem=Path(source).stem+f' - OG Master ({n})'
+        while any((folder/(stem+('.'+e))).exists() for e in extensions): n+=1; stem=Path(source).stem+f' - mastered ({n})'
         with tempfile.TemporaryDirectory(prefix='OGMaster-') as d:
             pcm=Path(d)/'master.wav'; mp3=Path(d)/'master.mp3'
             log=self.run(['-i',source,'-af',processing+','+normalizer(s),'-f','null','-'],'Measuring processed audio',seconds,10,25)

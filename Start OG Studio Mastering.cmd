@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
-if exist "dist\OG-Studio-Mastering-2.0.0-win-x64.exe" (
-  start "" "dist\OG-Studio-Mastering-2.0.0-win-x64.exe"
+if exist "dist\OG-Studio-Mastering-2.0.3-win-x64.exe" (
+  start "" "dist\OG-Studio-Mastering-2.0.3-win-x64.exe"
   exit /b 0
 )
 if not exist ".venv\Scripts\pythonw.exe" (

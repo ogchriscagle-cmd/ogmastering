@@ -3,6 +3,9 @@ from pathlib import Path
 import os,sys
 root=Path(SPECPATH).parent
 resources=[(str(root/'GenrePresets.json'),'.'),(str(root/'assets'),'assets'),(str(root/'bin/ffmpeg.exe'),'bin'),(str(root/'detection/detect.mjs'),'detection'),(str(root/'THIRD-PARTY-NOTICES.md'),'notices'),(str(root/'packaging/APACHE-2.0.txt'),'notices'),(str(root/'packaging/CLAP-MODEL-CARD.md'),'notices'),(str(root/'python_app/PYTHON-NOTICES.md'),'notices'),(str(root/'python_app/licenses'),'notices/licenses')]
+# Some managed Python runtimes require a trust-policy certificate beside ssl.py.
+trust_policy=Path(sys.base_prefix)/'Lib/codex-rejected-cas.pem'
+if trust_policy.is_file():resources.append((str(trust_policy),'.'))
 runtime=root/'bin/detection'
 for file in runtime.rglob('*'):
     if not file.is_file():continue
@@ -30,4 +33,4 @@ if os.environ.get('OG_BUILD_ONEDIR')=='1':
     exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='OG-Studio-Mastering-Python',debug=False,strip=False,upx=False,console=False,icon=str(root/'assets/og-blue.ico'),version=str(root/'python_app/windows-version.txt'))
     coll=COLLECT(exe,a.binaries,a.datas,strip=False,upx=False,name='OG-Studio-Mastering-Python')
 else:
-    exe=EXE(pyz,a.scripts,splash,splash.binaries,a.binaries,a.datas,[],name='OG-Studio-Mastering-2.0.0-win-x64',debug=False,bootloader_ignore_signals=False,strip=False,upx=False,console=False,icon=str(root/'assets/og-blue.ico'),version=str(root/'python_app/windows-version.txt'))
+    exe=EXE(pyz,a.scripts,splash,splash.binaries,a.binaries,a.datas,[],name='OG-Studio-Mastering-2.0.3-win-x64',debug=False,bootloader_ignore_signals=False,strip=False,upx=False,console=False,icon=str(root/'assets/og-blue.ico'),version=str(root/'python_app/windows-version.txt'))

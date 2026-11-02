@@ -1,12 +1,13 @@
 """OG Studio Mastering: PySide6 desktop application."""
-import json, os, sys, time, traceback, urllib.request, webbrowser
+import json, os, sys, time, traceback, urllib.request, webbrowser, ssl
 from pathlib import Path
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSignalBlocker
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSignalBlocker, QStandardPaths
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QComboBox,QDoubleSpinBox,QCheckBox,QScrollArea,QGroupBox,QFileDialog,QMessageBox,QProgressBar,QPlainTextEdit,QSlider,QSplashScreen,QDial)
 from PySide6.QtMultimedia import QMediaPlayer,QAudioOutput
+from updater import fetch_latest,release_asset,download as download_update
 from engine import ROOT,DEFAULT,RANGES,CATALOG,genre,validate,Engine
-VERSION='2.0.0'
+VERSION='2.0.3'
 RELEASES='https://github.com/ogchriscagle-cmd/ogstudiomastering/releases'
 PREFERENCES=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'OGMastering/preferences.json'
 PALETTES={'Midnight Cyan':('#080d16','#13cee7'),'Violet Night':('#120d20','#b78aff'),'Emerald':('#08170f','#36dba0'),'Crimson':('#1b0c14','#ff6b87'),'Amber':('#191307','#f6bf43'),'Ocean Blue':('#091321','#69adff')}
@@ -15,8 +16,15 @@ class Worker(QThread):
     progress=Signal(str,float); result=Signal(object); failed=Signal(str)
     def __init__(self,operation): super().__init__(); self.operation=operation; self.engine=Engine(lambda t,p:self.progress.emit(t,p))
     def run(self):
-        try: self.result.emit(self.operation(self.engine))
-        except Exception as e: self.failed.emit(str(e))
+        try:
+            result=self.operation(self.engine)
+            if self.engine.cancel.is_set():raise InterruptedError('Operation cancelled')
+            self.result.emit(result)
+        except Exception as e:
+            try:
+                path=Path(os.environ.get('OG_ERROR_LOG_PATH',str(PREFERENCES.parent/'last-operation-error.log')));path.parent.mkdir(parents=True,exist_ok=True);path.write_text(traceback.format_exc(),encoding='utf-8')
+            except OSError:pass
+            self.failed.emit(str(e))
 class Knob(QDial):
     def __init__(self,color):super().__init__();self.color=QColor(color)
     def paintEvent(self,event):
@@ -152,7 +160,7 @@ class Studio(QMainWindow):
     def busy(self,value):
         self.render.setEnabled(not value and bool(self.sources));self.toolbar_export.setEnabled(not value and bool(self.sources));self.cancel_button.setEnabled(value);self.modepicker.setEnabled(not value)
         for c in self.controls.values():c.setEnabled(not value)
-        self.genres.setEnabled(not value)
+        self.genres.setEnabled(not value);self.update_button.setEnabled(not value)
         for dial in self.dials.values():dial.setEnabled(not value)
     def start(self,operation,callback):
         if self.worker:return False
@@ -160,10 +168,13 @@ class Studio(QMainWindow):
     def finished(self,w):
         self.worker=None;self.busy(False);w.deleteLater()
         if getattr(self,'closing',False):self.close()
+        elif getattr(self,'pending_update',None):
+            asset=self.pending_update;self.pending_update=None;QTimer.singleShot(0,lambda:self.begin_update_download(asset))
         elif getattr(self,'pending_import',None):
             paths=self.pending_import;self.pending_import=None;QTimer.singleShot(0,lambda:self.import_songs(paths))
     def error(self,text):self.message(text);self.advice.appendPlainText(text)
     def cancel(self):
+        self.pending_update=None
         if self.worker:self.worker.engine.stop();self.message('Cancelling current operation...')
     def choose_songs(self):
         paths,_=QFileDialog.getOpenFileNames(self,'Choose songs','','Audio (*.wav *.mp3 *.flac *.m4a *.aif *.aiff *.ogg)')
@@ -276,17 +287,23 @@ class Studio(QMainWindow):
         if self.output:os.startfile(str(Path(self.output).parent))
     def updates(self):
         if self.worker:return
-        def work(e):
-            try:
-                req=urllib.request.Request('https://api.github.com/repos/ogchriscagle-cmd/ogstudiomastering/releases/latest',headers={'User-Agent':'OG-Studio-Mastering'})
-                with urllib.request.urlopen(req,timeout=12) as response:return json.load(response)
-            except Exception:return None
-        self.start(work,self.updated)
+        self.message('Checking GitHub for updates...',0)
+        self.start(lambda e:fetch_latest(),self.updated)
     def updated(self,release):
-        if not release:self.message('Could not check updates automatically. Opening GitHub releases in your browser.');webbrowser.open(RELEASES+'/latest');return
+        if self.worker and self.worker.engine.cancel.is_set():self.message('Update check cancelled');return
         try:
-            latest=tuple(int(n) for n in release['tag_name'].lstrip('v').split('.'));current=tuple(int(n) for n in VERSION.split('.'));self.message('Update available: '+release['tag_name'] if latest>current else 'You are up to date: v'+VERSION)
-        except (ValueError,KeyError):self.message('Could not read release version. Open GitHub releases to check.')
+            asset=release_asset(release,VERSION)
+            if not asset:self.message('You are up to date: v'+VERSION,100);return
+            self.message('New update found: '+asset['version']+'. Preparing download...',0)
+            self.pending_update=asset
+        except (ValueError,TypeError,KeyError) as error:self.error(str(error))
+    def begin_update_download(self,asset):
+        folder=QStandardPaths.writableLocation(QStandardPaths.DownloadLocation) or str(Path.home()/'Downloads')
+        self.start(lambda e:dict(path=download_update(asset,folder,e.progress,e.cancel),version=asset['version']),self.update_downloaded)
+    def update_downloaded(self,result):
+        self.message('Downloaded '+result['version']+' to '+result['path'],100)
+        dialog=QMessageBox(self);dialog.setWindowTitle('Update downloaded');dialog.setText(result['version']+' is ready.');dialog.setInformativeText('Saved to '+result['path']+'\n\nSave your project before opening the new version. Your current app will stay open.');open_button=dialog.addButton('Open update',QMessageBox.AcceptRole);dialog.addButton('Later',QMessageBox.RejectRole);dialog.exec()
+        if dialog.clickedButton()==open_button:os.startfile(result['path'])
     def dragEnterEvent(self,event):
         if event.mimeData().hasUrls() and not self.worker:event.acceptProposedAction()
     def dropEvent(self,event):
@@ -314,11 +331,19 @@ def main():
         splash_image.save(str(ROOT/'assets/python-splash.png'));app.quit();return
     if '--smoke-test' in sys.argv:
         def smoke():
+            ssl.create_default_context()
             (Path(os.environ.get('OG_SMOKE_OUTPUT',str(ROOT/'verification')))).mkdir(parents=True,exist_ok=True);studio.grab().save(str(Path(os.environ.get('OG_SMOKE_OUTPUT',str(ROOT/'verification')))/'python-ui.png'));(Path(os.environ.get('OG_SMOKE_OUTPUT',str(ROOT/'verification')))/'python-smoke.txt').write_text('PASS: Python standalone startup');print('PASS: PySide6 interface, theme picker, modes, controls, toolbar and splash');app.quit()
         QTimer.singleShot(800,smoke)
     sys.exit(app.exec())
 if __name__=='__main__':
-    if '--self-test' in sys.argv:
+    if '--update-check-test' in sys.argv:
+        test_app=QApplication(sys.argv);test_window=Studio();folder=Path(os.environ.get('OG_TEST_OUTPUT',str(PREFERENCES.parent)));folder.mkdir(parents=True,exist_ok=True)
+        def checked(release):
+            (folder/'update-check.json').write_text(json.dumps(dict(ok=True,tag=release.get('tag_name'))),encoding='utf-8');test_app.exit(0)
+        def check_failed(text):
+            (folder/'update-check.json').write_text(json.dumps(dict(ok=False,error=text)),encoding='utf-8');test_app.exit(1)
+        test_window.start(lambda e:fetch_latest(),checked);test_window.worker.failed.connect(check_failed);QTimer.singleShot(30000,lambda:test_app.exit(2));sys.exit(test_app.exec())
+    elif '--self-test' in sys.argv:
         folder=Path(os.environ.get('OG_TEST_OUTPUT',str(Path.home()/'OGMastering-test')))
         try:
             from verify import run_tests

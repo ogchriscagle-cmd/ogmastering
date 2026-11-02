@@ -25,7 +25,7 @@ See [Python setup and build instructions](python_app/README.md). After installin
 
 Build a standalone EXE with `packaging/Build-Python.ps1`. The build checks source startup and the packaged Qt interface. The release workflow additionally exercises bundled FFmpeg, WAV/MP3 export, reference matching and offline genre/vocal inference before publishing.
 
-The original WPF/PowerShell app remains available through **Start OG Mastering Legacy.cmd**. Its processing modules and verification scripts are retained for compatibility.
+The retired WPF/PowerShell implementation has been removed from the current source tree. Older versions remain available in Git history and previous releases. The remaining PowerShell files are setup/build helpers; the desktop app and mastering orchestration run in Python.
 
 ## Third-party software
 

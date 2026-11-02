@@ -5,7 +5,6 @@ on:
     paths:
       - '.github/workflows/release.yml'
       - 'packaging/**'
-      - 'release-version.txt'
       - 'python_app/**'
       - 'assets/**'
       - 'GenrePresets.json'
@@ -46,6 +45,15 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList '--self-test' -WindowStyle Hidden -PassThru -Wait
           if ($p.ExitCode -ne 0) { Get-Content (Join-Path $target 'engine-test-error.txt') -ErrorAction SilentlyContinue; throw 'Standalone package test failed' }
           Get-Content (Join-Path $target 'engine-test.txt')
+      - name: Test packaged GitHub update check
+        run: |
+          $version = (Get-Content python_app/version.txt -Raw).Trim()
+          $exe = Join-Path $pwd ('dist\OG-Studio-Mastering-'+$version+'-win-x64.exe')
+          $env:OG_TEST_OUTPUT = Join-Path $pwd 'verification\release-update-check'
+          $env:OG_ERROR_LOG_PATH = Join-Path $env:OG_TEST_OUTPUT 'traceback.txt'
+          $p = Start-Process -FilePath $exe -ArgumentList '--update-check-test' -WindowStyle Hidden -PassThru -Wait
+          if ($p.ExitCode -ne 0) { Get-Content $env:OG_ERROR_LOG_PATH -ErrorAction SilentlyContinue; throw 'Packaged HTTPS update check failed' }
+          Get-Content (Join-Path $env:OG_TEST_OUTPUT 'update-check.json')
       - name: Prepare source archive and checksums
         run: |
           $readme = Get-ChildItem bin -Filter README.txt -Recurse | Where-Object { $_.FullName -notlike '*detection*' } | Select-Object -First 1
